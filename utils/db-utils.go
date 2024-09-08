@@ -76,7 +76,8 @@ func FetchFundDataFromDB(db *sqlx.DB, schemeCode string, startDate, endDate time
 	return apiResponse, nil
 }
 
-func writeDataToDB(db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
+func writeDataToDB(wg_ext *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
+	defer wg_ext.Done()
 	fund := models.FundMetadata{
 		FundHouse:      apiResponse.Meta.FundHouse,
 		SchemeType:     apiResponse.Meta.SchemeType,
@@ -108,7 +109,7 @@ func writeDataToDB(db *sqlx.DB, apiResponse models.JsonResponse, batchSize, conc
 	}
 
 	limitCh := make(chan struct{}, concurrencyLimit)
-	var wg sync.WaitGroup
+	var wg_internal sync.WaitGroup
 
 	for i := 0; i < len(navRecords); i += batchSize {
 		end := i + batchSize
@@ -117,11 +118,11 @@ func writeDataToDB(db *sqlx.DB, apiResponse models.JsonResponse, batchSize, conc
 		}
 		batchNavRecords := navRecords[i:end]
 
-		wg.Add(1)
-		go insertNavRecordsInDBInBatches(db, batchNavRecords, &wg, limitCh)
+		wg_internal.Add(1)
+		go insertNavRecordsInDBInBatches(db, batchNavRecords, &wg_internal, limitCh)
 	}
 
-	wg.Wait()
+	wg_internal.Wait()
 }
 
 func insertFundInDB(db *sqlx.DB, fund models.FundMetadata) (int64, error) {

@@ -106,7 +106,7 @@ func FetchFundData(wg *sync.WaitGroup, mutualFundID string, start, end time.Time
 		fmt.Printf("Fetched data for fund with ID %s from upstream\n", mutualFundID)
 
 		wg.Add(1)
-		go writeDataToDB(db, response, BatchSize, ConcurrencyLimit)
+		go writeDataToDB(wg, db, response, BatchSize, ConcurrencyLimit)
 		fmt.Printf("Updated data for fund with id %s in the DB\n", mutualFundID)
 	} else {
 		// Fetch fund data from the DB
