@@ -1,8 +1,7 @@
 # Mutual Funds NAV API
 
-<div style="background-color: #d0f0c0; border-radius: 8px; padding: 10px 10px 2px; margin: 4px; text-align: center;">
-  <p style="font-weight: bold;">⚠️ Note: This is a learning project and is not intended for any other use. Please use it only for educational purposes.</p>
-</div>
+> [!NOTE]  
+> This is a learning project and is not intended for any other use. Please use it only for educational purposes.
 
 ## Overview
 
