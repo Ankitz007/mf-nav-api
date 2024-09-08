@@ -1,0 +1,13 @@
+{
+    "routes": [
+        {
+            "src": "/api/(.*)",
+            "dest": "/api/$1"
+        },
+        {
+            "src": "/(.*)",
+            "dest": "/pages/404.html",
+            "status": 404
+        }
+    ]
+}
