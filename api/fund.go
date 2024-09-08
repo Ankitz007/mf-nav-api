@@ -4,7 +4,7 @@ import (
 	"net/http"
 	"sync"
 
-	"github.com/Ankitz007/mutual-funds-nav-backend/utils"
+	"github.com/Ankitz007/mf-nav-api/utils"
 )
 
 // HTTP handler function to process the request

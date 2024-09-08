@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/Ankitz007/mutual-funds-nav-backend/models"
+	"github.com/Ankitz007/mf-nav-api/models"
 )
 
 // filterNAVDataByDate filters the NAV data based on the provided date range.

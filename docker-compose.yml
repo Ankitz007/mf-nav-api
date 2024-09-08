@@ -1,5 +1,5 @@
 services:
-  mutual-funds-nav-backend:
+  mf-nav-api:
     build:
       context: .
       dockerfile: Dockerfile

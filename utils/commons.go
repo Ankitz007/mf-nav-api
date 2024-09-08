@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Ankitz007/mutual-funds-nav-backend/models"
+	"github.com/Ankitz007/mf-nav-api/models"
 )
 
 // isValidInteger checks if a string can be parsed as an integer.

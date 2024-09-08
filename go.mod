@@ -1,4 +1,4 @@
-module github.com/Ankitz007/mutual-funds-nav-backend
+module github.com/Ankitz007/mf-nav-api
 
 go 1.23.0
 

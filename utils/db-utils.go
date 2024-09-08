@@ -5,7 +5,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/Ankitz007/mutual-funds-nav-backend/models"
+	"github.com/Ankitz007/mf-nav-api/models"
 	_ "github.com/go-sql-driver/mysql"
 	"github.com/jmoiron/sqlx"
 )

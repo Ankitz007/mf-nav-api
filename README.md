@@ -1,4 +1,4 @@
-# Mutual Funds NAV Backend
+# Mutual Funds NAV API
 
 <div style="background-color: #d0f0c0; border-radius: 8px; padding: 10px 10px 2px; margin: 4px; text-align: center;">
   <p style="font-weight: bold;">⚠️ Note: This is a learning project and is not intended for any other use. Please use it only for educational purposes.</p>
@@ -6,7 +6,7 @@
 
 ## Overview
 
-Welcome to the **Mutual Funds NAV Backend** project! This Go-based backend service provides access to information about Indian mutual funds and their Net Asset Values (NAV). Given a mutual fund ID, you can retrieve the latest NAV details or filter NAV data within a specified date range.
+Welcome to the **Mutual Funds NAV API** project! This Go-based backend service provides access to information about Indian mutual funds and their Net Asset Values (NAV). Given a mutual fund ID, you can retrieve the latest NAV details or filter NAV data within a specified date range.
 
 ## Features
 
@@ -35,7 +35,7 @@ Please update your environment variables in a `.env` file using `.env.example` f
 1. **Build and Start the Docker Containers**
 
    ```bash
-   docker-compose up -d mutual-funds-backend-api
+   docker-compose up -d mf-nav-api
    ```
 
    This command will build the Docker image and start the application in detached mode. The Air tool will automatically reload the service whenever you make changes to the code.

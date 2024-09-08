@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net/http"
 
-	handler "github.com/Ankitz007/mutual-funds-nav-backend/api"
+	handler "github.com/Ankitz007/mf-nav-api/api"
 )
 
 func main() {
