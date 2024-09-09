@@ -9,8 +9,8 @@ import (
 	"github.com/Ankitz007/mf-nav-api/models"
 )
 
-// filterNAVDataByDate filters the NAV data based on the provided date range.
-func filterNAVDataByDate(data []models.NAVData, start, end time.Time) []models.NAVData {
+// FilterNAVDataByDate filters the NAV data based on the provided date range.
+func FilterNAVDataByDate(data []models.NAVData, start, end time.Time) []models.NAVData {
 	var filteredData []models.NAVData
 
 	for _, item := range data {
@@ -45,7 +45,7 @@ func fetchFundDataFromUpstream(mutualFundID string) (models.UpstreamResponse, er
 }
 
 // generates a successful json response model from upstream response model
-func generateJsonResponseModel(meta models.MetaData, data []models.NAVData, start, end time.Time) models.JsonResponse {
+func GenerateJsonResponseModel(meta models.MetaData, data []models.NAVData, start, end time.Time) models.JsonResponse {
 	response := models.JsonResponse{
 		Meta: meta,
 		Data: data,

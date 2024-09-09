@@ -76,8 +76,7 @@ func FetchFundDataFromDB(db *sqlx.DB, schemeCode string, startDate, endDate time
 	return apiResponse, nil
 }
 
-func writeDataToDB(wg_ext *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
-	defer wg_ext.Done()
+func WriteDataToDB(db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
 	fund := models.FundMetadata{
 		FundHouse:      apiResponse.Meta.FundHouse,
 		SchemeType:     apiResponse.Meta.SchemeType,
@@ -123,6 +122,7 @@ func writeDataToDB(wg_ext *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonR
 	}
 
 	wg_internal.Wait()
+	fmt.Printf("Updated data for the fund %d in DB\n", apiResponse.Meta.SchemeCode)
 }
 
 func insertFundInDB(db *sqlx.DB, fund models.FundMetadata) (int64, error) {

@@ -1,13 +1,12 @@
 package utils
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
-	"sync"
 	"time"
 
 	"github.com/Ankitz007/mf-nav-api/models"
+	"github.com/jmoiron/sqlx"
 )
 
 // isValidInteger checks if a string can be parsed as an integer.
@@ -69,59 +68,34 @@ func parseDates(startDate, endDate string) (time.Time, time.Time, error) {
 	return start, end, nil
 }
 
-func FetchFundData(wg *sync.WaitGroup, mutualFundID string, start, end time.Time) ([]byte, error) {
+func FetchFundData(db *sqlx.DB, mutualFundID string, start, end time.Time, getFromDB bool) (models.JsonResponse, error) {
 	var response models.JsonResponse
-	var getFromUpstream bool
-	var existsInDB bool
+	var err error
 
-	db, err := SetupDB()
-	if err != nil {
-		// If something is wrong with the DB, fetch data from upstream
-		getFromUpstream = true
-	}
-
-	if !getFromUpstream {
-		existsInDB, err = CheckIfFundExistsInDB(db, mutualFundID)
-		if err != nil {
-			return nil, fmt.Errorf("error fetching fund from the db")
-		}
-	}
-
-	if !existsInDB {
+	if !getFromDB {
+		var fund models.UpstreamResponse
 		// Fetch fund data from API
-		fund, err := fetchFundDataFromUpstream(mutualFundID)
+		fund, err = fetchFundDataFromUpstream(mutualFundID)
 		if err != nil {
-			return nil, fmt.Errorf("something went wrong while fetching data from upstream, error %v", err)
+			return models.JsonResponse{}, fmt.Errorf("something went wrong while fetching data from upstream, error %v", err)
 		}
 
 		// Check if the meta field is empty, indicating an invalid mutualFundID
 		if fund.Meta == (models.JsonResponse{}.Meta) {
-			return nil, fmt.Errorf("invalid mutual fund ID")
+			return models.JsonResponse{}, fmt.Errorf("invalid mutual fund ID")
 		}
-
-		// Filter data based on date range
-		filteredNAVData := filterNAVDataByDate(fund.Data, start, end)
-
-		response = generateJsonResponseModel(fund.Meta, filteredNAVData, start, end)
 		fmt.Printf("Fetched data for fund with ID %s from upstream\n", mutualFundID)
 
-		wg.Add(1)
-		go writeDataToDB(wg, db, response, BatchSize, ConcurrencyLimit)
-		fmt.Printf("Updated data for fund with id %s in the DB\n", mutualFundID)
+		// This data is for the DB, no filtering needed here
+		response = GenerateJsonResponseModel(fund.Meta, fund.Data, start, end)
 	} else {
 		// Fetch fund data from the DB
 		response, err = FetchFundDataFromDB(db, mutualFundID, start, end)
 		if err != nil {
-			return nil, fmt.Errorf("something went wrong while fetching data from the db, error %v", err)
+			return models.JsonResponse{}, fmt.Errorf("something went wrong while fetching data from the db, error %v", err)
 		}
 		fmt.Printf("Fetched data for fund with ID %s from db\n", mutualFundID)
 	}
 
-	// Marshal the response to JSON
-	jsonResponse, err := json.Marshal(response)
-	if err != nil {
-		return nil, fmt.Errorf("error creating JSON response")
-	}
-
-	return jsonResponse, nil
+	return response, nil
 }
