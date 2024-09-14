@@ -31,6 +31,7 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 		// If something is wrong with the DB, fetch data from upstream
 		getFromUpstream = true
 	}
+	defer db.Close()
 
 	if !getFromUpstream {
 		getFromDB, err = utils.CheckIfFundExistsInDB(db, mutualFundID)
