@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -32,9 +33,14 @@ func CheckIfFundExistsInDB(db *sqlx.DB, schemeCode string) (bool, error) {
         WHERE scheme_code = ?
     )`
 
-	err := db.Get(&exists, query, schemeCode)
+	// Define a context with a timeout for queries
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+
+	// Execute the query with the context
+	err := db.QueryRowContext(ctx, query, schemeCode).Scan(&exists)
 	if err != nil {
-		return false, err
+		exists = false
 	}
 
 	return exists, nil
@@ -76,7 +82,8 @@ func FetchFundDataFromDB(db *sqlx.DB, schemeCode string, startDate, endDate time
 	return apiResponse, nil
 }
 
-func WriteDataToDB(db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
+func WriteDataToDB(wg *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
+	defer wg.Done()
 	fund := models.FundMetadata{
 		FundHouse:      apiResponse.Meta.FundHouse,
 		SchemeType:     apiResponse.Meta.SchemeType,

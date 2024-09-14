@@ -3,6 +3,7 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"sync"
 
 	"github.com/Ankitz007/mf-nav-api/utils"
 )
@@ -11,6 +12,7 @@ import (
 func Handler(w http.ResponseWriter, r *http.Request) {
 	var getFromUpstream bool
 	var getFromDB bool
+	var wg sync.WaitGroup
 
 	// Fetch query parameters
 	mutualFundID := r.URL.Query().Get("mutualFundID")
@@ -62,6 +64,8 @@ func Handler(w http.ResponseWriter, r *http.Request) {
 
 	// Update the DB via a separate goroutine
 	if !getFromDB {
-		go utils.WriteDataToDB(db, fundData, utils.BatchSize, utils.ConcurrencyLimit)
+		wg.Add(1)
+		go utils.WriteDataToDB(&wg, db, fundData, utils.BatchSize, utils.ConcurrencyLimit)
 	}
+	wg.Wait()
 }
