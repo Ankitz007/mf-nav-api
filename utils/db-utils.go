@@ -55,10 +55,21 @@ func FetchFundDataFromDB(db *sqlx.DB, schemeCode string, startDate, endDate time
 		return models.JsonResponse{}, fmt.Errorf("error fetching fund: %v", err)
 	}
 
-	err = db.Select(&navRecords, `
-		SELECT * FROM nav_records 
-		WHERE fund_id = ? AND date BETWEEN ? AND ? 
-		ORDER BY date DESC`, fund.ID, startDate, endDate)
+	// Start with the base query
+	query := "SELECT * FROM nav_records WHERE fund_id = ?"
+	args := []interface{}{fund.ID}
+
+	// Append date filters to the query if both dates are provided
+	if !startDate.IsZero() && !endDate.IsZero() {
+		query += " AND date BETWEEN ? AND ?"
+		args = append(args, startDate, endDate)
+	}
+
+	// Add the ordering clause
+	query += " ORDER BY date DESC"
+
+	// Fetch the nav records
+	err = db.Select(&navRecords, query, args...)
 	if err != nil {
 		return models.JsonResponse{}, fmt.Errorf("error fetching nav records: %v", err)
 	}
@@ -75,7 +86,7 @@ func FetchFundDataFromDB(db *sqlx.DB, schemeCode string, startDate, endDate time
 	for _, record := range navRecords {
 		apiResponse.Data = append(apiResponse.Data, models.NAVData{
 			Date: record.Date.Format("02-01-2006"),
-			Nav:  fmt.Sprintf("%.2f", record.Nav),
+			Nav:  fmt.Sprintf("%.4f", record.Nav),
 		})
 	}
 
