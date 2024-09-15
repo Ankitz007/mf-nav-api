@@ -95,6 +95,15 @@ func FetchFundDataFromDB(db *sqlx.DB, schemeCode string, startDate, endDate time
 
 func WriteDataToDB(wg *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonResponse, batchSize, concurrencyLimit int) {
 	defer wg.Done()
+
+	// Start the transaction
+	tx, err := db.Beginx()
+	if err != nil {
+		fmt.Printf("Error starting transaction: %v\n", err)
+		return
+	}
+
+	// Insert the fund
 	fund := models.FundMetadata{
 		FundHouse:      apiResponse.Meta.FundHouse,
 		SchemeType:     apiResponse.Meta.SchemeType,
@@ -103,14 +112,14 @@ func WriteDataToDB(wg *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonRespo
 		SchemeName:     apiResponse.Meta.SchemeName,
 	}
 
-	fundID, err := insertFundInDB(db, fund)
+	fundID, err := insertFundInDBWithTx(tx, fund)
 	if err != nil {
 		fmt.Printf("Error inserting fund: %v\n", err)
+		tx.Rollback() // Rollback the transaction on failure
 		return
 	}
 
 	var navRecords []models.NavRecord
-
 	for _, record := range apiResponse.Data {
 		date, err := time.Parse("02-01-2006", record.Date)
 		if err != nil {
@@ -125,6 +134,42 @@ func WriteDataToDB(wg *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonRespo
 		navRecords = append(navRecords, nav)
 	}
 
+	// Insert NAV records in batches
+	err = insertNavRecordsInDBInBatchesWithTx(tx, navRecords, batchSize, concurrencyLimit)
+	if err != nil {
+		fmt.Printf("Error inserting NAV records: %v\n", err)
+		tx.Rollback() // Rollback if NAV records insertion fails
+		return
+	}
+
+	// Commit the transaction
+	err = tx.Commit()
+	if err != nil {
+		fmt.Printf("Error committing transaction: %v\n", err)
+		return
+	}
+
+	fmt.Printf("Successfully updated data for fund %d in DB\n", apiResponse.Meta.SchemeCode)
+}
+
+// insertFundInDBWithTx: Inserts a fund into the DB within a transaction
+func insertFundInDBWithTx(tx *sqlx.Tx, fund models.FundMetadata) (int64, error) {
+	insertFundQuery := "INSERT INTO funds (fund_house, scheme_type, scheme_category, scheme_code, scheme_name) VALUES (?, ?, ?, ?, ?)"
+	result, err := tx.Exec(insertFundQuery, fund.FundHouse, fund.SchemeType, fund.SchemeCategory, fund.SchemeCode, fund.SchemeName)
+	if err != nil {
+		return 0, fmt.Errorf("error inserting fund: %v", err)
+	}
+
+	fundID, err := result.LastInsertId()
+	if err != nil {
+		return 0, fmt.Errorf("error retrieving last insert ID: %v", err)
+	}
+
+	return fundID, nil
+}
+
+// insertNavRecordsInDBInBatchesWithTx: Inserts NAV records into the DB in batches within a transaction
+func insertNavRecordsInDBInBatchesWithTx(tx *sqlx.Tx, navRecords []models.NavRecord, batchSize, concurrencyLimit int) error {
 	limitCh := make(chan struct{}, concurrencyLimit)
 	var wg_internal sync.WaitGroup
 
@@ -136,52 +181,26 @@ func WriteDataToDB(wg *sync.WaitGroup, db *sqlx.DB, apiResponse models.JsonRespo
 		batchNavRecords := navRecords[i:end]
 
 		wg_internal.Add(1)
-		go insertNavRecordsInDBInBatches(db, batchNavRecords, &wg_internal, limitCh)
+		go func(batch []models.NavRecord) {
+			defer wg_internal.Done()
+			limitCh <- struct{}{}
+
+			err := insertNavRecordBatchWithTx(tx, batch)
+			if err != nil {
+				fmt.Printf("Error inserting NAV records batch: %v\n", err)
+			}
+
+			<-limitCh
+		}(batchNavRecords)
 	}
 
 	wg_internal.Wait()
-	fmt.Printf("Updated data for the fund %d in DB\n", apiResponse.Meta.SchemeCode)
+
+	return nil
 }
 
-func insertFundInDB(db *sqlx.DB, fund models.FundMetadata) (int64, error) {
-	tx, err := db.Beginx()
-	if err != nil {
-		return 0, fmt.Errorf("error starting transaction for fund: %v", err)
-	}
-
-	insertFundQuery := "INSERT INTO funds (fund_house, scheme_type, scheme_category, scheme_code, scheme_name) VALUES (?, ?, ?, ?, ?)"
-	result, err := tx.Exec(insertFundQuery, fund.FundHouse, fund.SchemeType, fund.SchemeCategory, fund.SchemeCode, fund.SchemeName)
-	if err != nil {
-		tx.Rollback()
-		return 0, fmt.Errorf("error inserting fund: %v", err)
-	}
-
-	fundID, err := result.LastInsertId()
-	if err != nil {
-		tx.Rollback()
-		return 0, fmt.Errorf("error retrieving last insert ID: %v", err)
-	}
-
-	err = tx.Commit()
-	if err != nil {
-		return 0, fmt.Errorf("error committing transaction for fund: %v", err)
-	}
-
-	return fundID, nil
-}
-
-func insertNavRecordsInDBInBatches(db *sqlx.DB, navRecords []models.NavRecord, wg *sync.WaitGroup, limitCh chan struct{}) {
-	defer wg.Done()
-
-	limitCh <- struct{}{}
-	defer func() { <-limitCh }()
-
-	tx, err := db.Beginx()
-	if err != nil {
-		fmt.Printf("Error starting transaction for nav_records batch: %v\n", err)
-		return
-	}
-
+// insertNavRecordBatchWithTx: Helper function to insert a batch of NAV records within a transaction
+func insertNavRecordBatchWithTx(tx *sqlx.Tx, navRecords []models.NavRecord) error {
 	insertNavRecordsQuery := "INSERT INTO nav_records (fund_id, date, nav) VALUES "
 	navRecordValues := make([]interface{}, 0, len(navRecords)*3)
 
@@ -193,24 +212,10 @@ func insertNavRecordsInDBInBatches(db *sqlx.DB, navRecords []models.NavRecord, w
 		navRecordValues = append(navRecordValues, record.FundID, record.Date, record.Nav)
 	}
 
-	stmtNavRecords, err := tx.Preparex(insertNavRecordsQuery)
+	_, err := tx.Exec(insertNavRecordsQuery, navRecordValues...)
 	if err != nil {
-		fmt.Printf("Error preparing statement for nav_records batch: %v\n", err)
-		tx.Rollback()
-		return
-	}
-	defer stmtNavRecords.Close()
-
-	_, err = stmtNavRecords.Exec(navRecordValues...)
-	if err != nil {
-		fmt.Printf("Error inserting nav_records batch: %v\n", err)
-		tx.Rollback()
-		return
+		return fmt.Errorf("error inserting nav_records batch: %v", err)
 	}
 
-	err = tx.Commit()
-	if err != nil {
-		fmt.Printf("Error committing transaction for nav_records batch: %v\n", err)
-		return
-	}
+	return nil
 }
